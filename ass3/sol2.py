@@ -50,6 +50,11 @@ def getP():
 	return P
 
 
+def showFrob(P1, P2):
+	np.set_printoptions(suppress=True)
+	print("Frobenius norm between two matrices is: %f" % np.linalg.norm(P1 - P2, 'fro'))
+
+
 def getNoiseP(POrig):
 	np.random.seed(23)
 	limit = 0.5
@@ -61,9 +66,7 @@ def getNoiseP(POrig):
 			PNoise[r, c] = POrig[r, c] + np.random.uniform(0, limit)
 	PNoise[2, 3] = 1
 
-	# np.set_printoptions(suppress=True)
-	# print(POrig); print("\n\n"); print(PNoise)
-	# print("Frobenius norm between two matrices is: %f" % np.linalg.norm(POrig - PNoise, 'fro'))
+	# showFrob(POrig, PNoise)
 
 	return PNoise
 
@@ -138,15 +141,6 @@ def numJac(P):
 def pseudoInv(J):
 	cov = np.dot(J.T, J)
 	inv = np.linalg.pinv(cov)
-	# np.set_printoptions(precision=2, suppress=True)
-	# print(np.dot(cov, inv))
-	
-	# if(np.linalg.cond(cov) < 1/sys.float_info.epsilon):
-	# 	inv = np.linalg.inv(cov)
-	# 	# return np.dot(inv, J.T)
-	# else:
-	# 	print("Non invertible covariance matrix with condition number {:.2e}. Exiting ...".format(np.linalg.cond(cov)))
-	# 	exit(1)
 
 	return np.dot(inv, J.T)
 
@@ -156,15 +150,27 @@ def gaussNewton(P0):
 
 	fCur = getFunc(pCur)
 	normCur = np.linalg.norm(fCur)
-	threshNorm = 5
+	threshNorm = 1
+	J = jacobian(getFunc)
 
 	while(normCur > threshNorm):
 		print("Current Norm: %f" % normCur)
 		
-		J = jacobian(getFunc)
 		JCur = J(pCur)
 		pInv = pseudoInv(JCur)
-		pNext = pCur - pInv
+		pNext = pCur - np.dot(pInv, fCur)
+
+		pCur = pNext
+		fCur = getFunc(pCur)
+		normCur = np.linalg.norm(fCur)
+
+	np.set_printoptions(precision=2, suppress=True)
+	POpt = pCur.reshape(3, 4)
+	POpt = POpt/POpt[2, 3]
+
+	print("Current Norm: %f" % normCur)
+	
+	return POpt
 
 
 if __name__ == '__main__':
@@ -173,6 +179,8 @@ if __name__ == '__main__':
 	# show(pcd)
 
 	POrig = getP()
+	np.set_printoptions(precision=2, suppress=True)
+	print("Original P: "); print(POrig)
 
 	pxh = getPx(POrig, pcdX)
 
@@ -182,7 +190,9 @@ if __name__ == '__main__':
 	pxC, pXC = getCorres(pxh, pcdX)
 	
 	PNoise = getNoiseP(POrig)
+	print("Noisy P: "); print(PNoise); showFrob(POrig, PNoise)
 	
 	JAnaly = numJac(PNoise)
 
 	POpt = gaussNewton(PNoise)
+	print("Optimized P: "); print(POpt); showFrob(POrig, POpt)

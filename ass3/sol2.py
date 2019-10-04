@@ -135,18 +135,20 @@ def numJac(P):
 	return JP
 
 
-def pInv(J, lam):
-	# print(J)
+def pseudoInv(J):
 	cov = np.dot(J.T, J)
-
-	inv = np.linalg.inv(cov)
+	inv = np.linalg.pinv(cov)
+	# np.set_printoptions(precision=2, suppress=True)
+	# print(np.dot(cov, inv))
 	
-	if(np.linalg.cond(cov) < 1/sys.float_info.epsilon):
-		inv = np.linalg.inv(cov)
-		# return np.dot(inv, J.T)
-	else:
-		print("Non invertible covariance matrix with condition number {:.2e}. Exiting ...".format(np.linalg.cond(cov)))
-		exit(1)
+	# if(np.linalg.cond(cov) < 1/sys.float_info.epsilon):
+	# 	inv = np.linalg.inv(cov)
+	# 	# return np.dot(inv, J.T)
+	# else:
+	# 	print("Non invertible covariance matrix with condition number {:.2e}. Exiting ...".format(np.linalg.cond(cov)))
+	# 	exit(1)
+
+	return np.dot(inv, J.T)
 
 
 def gaussNewton(P0):
@@ -156,11 +158,13 @@ def gaussNewton(P0):
 	normCur = np.linalg.norm(fCur)
 	threshNorm = 5
 
-	while(True):
+	while(normCur > threshNorm):
+		print("Current Norm: %f" % normCur)
+		
 		J = jacobian(getFunc)
 		JCur = J(pCur)
-		pInv(JCur)
-		# pNext = pCur - pInv
+		pInv = pseudoInv(JCur)
+		pNext = pCur - pInv
 
 
 if __name__ == '__main__':

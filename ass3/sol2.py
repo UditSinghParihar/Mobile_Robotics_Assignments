@@ -55,7 +55,13 @@ def showFrob(P1, P2, str1="mat1", str2="mat2"):
 	print("Frobenius norm between %s and %s is: %f" % (str1, str2, np.linalg.norm(P1 - P2, 'fro')))
 
 
-def getNoiseP(POrig):
+def getRT(P, K):
+	RT = np.dot(np.linalg.pinv(K), P)
+
+	return RT
+
+
+def getNoiseP(POrig, K):
 	np.random.seed(23)
 	limit = 0.5
 
@@ -66,24 +72,7 @@ def getNoiseP(POrig):
 			PNoise[r, c] = POrig[r, c] + np.random.uniform(0, limit)
 	PNoise[2, 3] = 1
 
-	return PNoise
-
-
-def getNoiseP2(K, RT):
-	np.random.seed(23)
-	limit = 0.5
-
-	RTNoise = np.zeros(RT.shape)
-
-	for r in range(RT.shape[0]):
-		for c in range(RT.shape[1]):
-			RTNoise[r, c] = RT[r, c] + np.random.uniform(0, limit)
-
-	PNoise = np.dot(K, RTNoise)
-	PNoise = PNoise/PNoise[2, 3]
-
-	return PNoise, RTNoise
-
+	return PNoise, getRT(PNoise, K)
 
 
 def getImg(pxh, pcdColor):
@@ -239,16 +228,10 @@ def gaussNewton(P0):
 	return POpt
 
 
-def getRT(P, K):
-	RT = np.dot(np.linalg.pinv(K), P)
-
-	return RT
-
-
 if __name__ == '__main__':
 	file = str(argv[1])
 	pcdX, pcdColor, pcd = read(file)
-	# show(pcd)
+	show(pcd)
 
 	POrig, K, RTOrig = getP()
 	np.set_printoptions(precision=2, suppress=True)
@@ -257,15 +240,13 @@ if __name__ == '__main__':
 	pxh = getPx(POrig, pcdX)
 
 	img = getImg(pxh, pcdColor)
-	# showImg(img)
+	showImg(img)
 
 	pxC, pXC = getCorres(pxh, pcdX)
 	
-	PNoise = getNoiseP(POrig)
+	PNoise, RTNoise = getNoiseP(POrig, K)
 	print("Noisy P: "); print(PNoise); showFrob(POrig, PNoise, "POrig", "PNoise")
-	# PNoise, RTNoise = getNoiseP2(K, RTOrig)
-	# print("Noisy P: "); print(PNoise); showFrob(POrig, PNoise, "POrig", "PNoise")
-
+	# showFrob(RTOrig, RTNoise, "RTOrig", "RTNoise")
 	
 	PNoiseVec = PNoise.reshape(PNoise.shape[0]*PNoise.shape[1])
 	JNum = numJac(PNoiseVec)

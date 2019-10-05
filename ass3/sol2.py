@@ -237,16 +237,20 @@ if __name__ == '__main__':
 	np.set_printoptions(precision=2, suppress=True)
 	print("Original P: "); print(POrig)
 
+	print("Projecting image using Original P matrix: ...")
 	pxh = getPx(POrig, pcdX)
-
-	img = getImg(pxh, pcdColor)
-	showImg(img)
+	imgOrig = getImg(pxh, pcdColor)
+	showImg(imgOrig)
 
 	pxC, pXC = getCorres(pxh, pcdX)
 	
 	PNoise, RTNoise = getNoiseP(POrig, K)
 	print("Noisy P: "); print(PNoise); showFrob(POrig, PNoise, "POrig", "PNoise")
 	# showFrob(RTOrig, RTNoise, "RTOrig", "RTNoise")
+	print("Projecting image using Noisy P matrix: ...")
+	pxhNoise = getPx(PNoise, pcdX)
+	imgNoise = getImg(pxhNoise, pcdColor)
+	showImg(imgNoise)
 	
 	PNoiseVec = PNoise.reshape(PNoise.shape[0]*PNoise.shape[1])
 	JNum = numJac(PNoiseVec)
@@ -259,3 +263,8 @@ if __name__ == '__main__':
 	RTOpt = getRT(POpt, K)
 	showFrob(RTOrig, RTOpt, "RTOrig", "RTOpt")
 	print("Original RT: "); print(RTOrig); print("Optimized RT: "); print(RTOpt)
+
+	print("Projecting image using optimized P matrix: ...")
+	pxhOpt = getPx(POpt, pcdX)
+	imgOpt = getImg(pxhOpt, pcdColor)
+	showImg(imgOpt)

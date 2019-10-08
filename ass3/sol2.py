@@ -1,3 +1,5 @@
+# USAGE: python sol2b.py cloud_opencv0.ply
+
 import open3d as o3d
 from sys import argv
 import math
@@ -17,13 +19,14 @@ def read(file):
 
 
 # All projected pixels have +ve coordinates
-xCam = 2.25; yCam = 0.15; zCam = 0.5; tCam = math.radians(-20)
+# xCam = 2.25; yCam = 0.15; zCam = 0.5; tCam = math.radians(-20)
+xCam = 800; yCam = -200; zCam = 850; tCam = math.radians(0)
 
 
 def show(pcd):
-	axis = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.6, origin=[0, 0, 0])
+	axis = o3d.geometry.TriangleMesh.create_coordinate_frame(size=600, origin=[0, 0, 0])
 
-	mesh_sphere = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.2, origin=[0, 0, 0])
+	mesh_sphere = o3d.geometry.TriangleMesh.create_coordinate_frame(size=200, origin=[0, 0, 0])
 	global xCam; global yCam; global zCam; global tCam
 	trans = np.array([[cos(tCam), -sin(tCam), 0, xCam], [sin(tCam), cos(tCam), 0, yCam], [0, 0, 1, zCam], [0, 0, 0, 1]])
 	mesh_sphere.transform(trans)
@@ -46,7 +49,7 @@ def getP():
 	RT_w_c = np.linalg.inv(RT_c_w)
 	P = np.dot(K, RT_w_c[0:3, :])
 
-	P = P/P[2, 3]
+	# P = P/P[2, 3]
 	return P, K, RT_w_c[0:3, :]
 
 
@@ -70,7 +73,7 @@ def getNoiseP(POrig, K):
 	for r in range(POrig.shape[0]):
 		for c in range(POrig.shape[1]):
 			PNoise[r, c] = POrig[r, c] + np.random.uniform(0, limit)
-	PNoise[2, 3] = 1
+	# PNoise[2, 3] = 1
 
 	return PNoise, getRT(PNoise, K)
 
@@ -221,11 +224,22 @@ def gaussNewton(P0):
 
 	np.set_printoptions(precision=2, suppress=True)
 	POpt = pCur.reshape(3, 4)
-	POpt = POpt/POpt[2, 3]
+	# POpt = POpt/POpt[2, 3]
 
 	print("Reprojection error: %f" % normCur)
 	
 	return POpt
+
+
+def enforceSO(RT):
+	R = RT[0:3, 0:3]
+	U, S, Vh = np.linalg.svd(R, full_matrices=True)
+	RSO = U @ Vh
+
+	# print(RSO.shape, RT[:, 3].shape)
+	RTSO = np.hstack((RSO, RT[:, 3].reshape(3,1)))
+
+	return RTSO
 
 
 if __name__ == '__main__':
@@ -246,7 +260,7 @@ if __name__ == '__main__':
 	
 	PNoise, RTNoise = getNoiseP(POrig, K)
 	print("Noisy P: "); print(PNoise); showFrob(POrig, PNoise, "POrig", "PNoise")
-	# showFrob(RTOrig, RTNoise, "RTOrig", "RTNoise")
+	showFrob(RTOrig, RTNoise, "RTOrig", "RTNoise")
 	print("Projecting image using Noisy P matrix: ...")
 	pxhNoise = getPx(PNoise, pcdX)
 	imgNoise = getImg(pxhNoise, pcdColor)
@@ -268,3 +282,6 @@ if __name__ == '__main__':
 	pxhOpt = getPx(POpt, pcdX)
 	imgOpt = getImg(pxhOpt, pcdColor)
 	showImg(imgOpt)
+
+	RTSO = enforceSO(RTOpt)
+	print("RT after enforcing special orthonormality on R matrix: "); print(RTSO)

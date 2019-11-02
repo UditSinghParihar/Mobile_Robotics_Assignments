@@ -42,6 +42,7 @@ def drawTwo(X1, Y1, THETA1, X2, Y2, THETA2, L):
 
 def ekf(PPre, xPre, yPre, tPre, vCur, omCur, v_var, om_var, rCur, bCur, r_var, b_var, l, d):
 	dt = 0.1
+	# 1. Prediction based on Measurement
 	FPrev = np.array([[1, 0, -dt * vCur * s(tPre)],
 						[0, 1, dt * vCur * c(tPre)],
 						[0, 0, 1]])
@@ -58,32 +59,37 @@ def ekf(PPre, xPre, yPre, tPre, vCur, omCur, v_var, om_var, rCur, bCur, r_var, b
 
 	RCur = np.array([[r_var, 0], [0, b_var]])
 	
-	sum1 = np.zeros((3, 3)); sum2 = np.zeros((3, 1))
-	for i, (xl, yl) in enumerate(l):
-		# Looping only when atleast one landmark is found. i.e. rCur has atleast one nonzero value
-		if(np.any(rCur)):
+
+	# 2. Finding Kalman Gain
+	Kcur = np.zeros((3, 2)); GCur = np.zeros((2, 3))
+	sensPred = np.zeros((2, 1)); sensMeas = np.zeros((2, 1))
+
+	# Updating based on sensor information only when atleast one landmark is found. i.e. rCur has atleast one nonzero value
+	if(np.any(rCur)):
+		minInd = -1
+		for i, (xl, yl) in enumerate(l):
 			# Updating based on nearest landmark only. i.e. Finding the index of the least nonzero element in rCur
 			minInd = int(np.where(rCur == np.min(rCur[np.nonzero(rCur)]))[0][0])
-			if(i == minInd):
-				alpha = float(yl - yPred - (d * s(tPred)))
-				beta = float(xl - xPred - (d * c(tPred)))
-				dist = float((alpha**2 + beta**2)**0.5)
 
-				GCur = np.array([[-beta/dist, -alpha/dist, (beta * d * s(tPred) - alpha * d * c(tPred))/dist], 
-									[alpha/dist, -beta/dist, -(beta * d * c(tPred) + alpha * d * s(tPred) + alpha**2 + beta**2)/dist]])
+		if(np.any(rCur)):
+			xl = l[minInd, 0]; yl = l[minInd, 1] 
+			alpha = float(yl - yPred - (d * s(tPred)))
+			beta = float(xl - xPred - (d * c(tPred)))
+			dist = float((alpha**2 + beta**2)**0.5)
 
-				Kcur = PPred @ GCur.T @ np.linalg.pinv(GCur @ PPred @ GCur.T + RCur)
+			GCur = np.array([[-beta/dist, -alpha/dist, (beta * d * s(tPred) - alpha * d * c(tPred))/dist], 
+								[alpha/dist**2, -beta/dist**2, -(beta * d * c(tPred) + alpha * d * s(tPred) + alpha**2 + beta**2)/dist**2]])
 
-				sum1 = sum1 + Kcur @ GCur
+			Kcur = PPred @ GCur.T @ np.linalg.pinv(GCur @ PPred @ GCur.T + RCur)
 
-				sensPred = np.array([[dist], [atan2(alpha, beta) - float(tPred)]])
-				sensMeas = np.array([[rCur[i]], [bCur[i]]])		
-				sum2 = sum2 + Kcur @ (sensMeas - sensPred)
+			sensPred = np.array([[dist], [atan2(alpha, beta) - float(tPred)]])
+			sensMeas = np.array([[rCur[minInd]], [bCur[minInd]]])		
 
-	PCur = (np.eye(3) - sum1) @ PPred
-	xCur = xPred + sum2[0]
-	yCur = yPred + sum2[1]
-	tCur = tPred + sum2[2]
+	# 3. Correction based on Sensor Measurement
+	PCur = (np.eye(3) - Kcur @ GCur) @ PPred
+	xCur = xPred + (Kcur @ (sensMeas - sensPred))[0]
+	yCur = yPred + (Kcur @ (sensMeas - sensPred))[1]
+	tCur = tPred + (Kcur @ (sensMeas - sensPred))[2]
 
 	return (xCur, yCur, tCur, PCur)
 
